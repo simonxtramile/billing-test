@@ -144,22 +144,6 @@ def get_billing_info(appointment_details):
         "billing_label": billing_label,
         "service_items": additional_items
     }
-'''
-appointment_details = {
-    'start_time': '08:30',
-    'length': 20,  # Length of the appointment in minutes
-    'day_of_week': 'Saturday',
-    'medicare_card': True,
-    'evercare_paid': 0,
-    'age': 13,
-    'work_capacity_certificate': False,
-    'has_pension_card': False,
-    'appointment_type': 'Standard',  # Could be GPMP, TCA, MHCP, Health Assessment, etc.
-    'telehealth': True,
-    'seen_doctor_in_person_last_12_months': False,  
-    'registered_with_mymedicare': True  
-}
-'''
 #billing_info = get_billing_info(appointment_details)
 #print(billing_info)
 
