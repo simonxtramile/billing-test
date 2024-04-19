@@ -2,30 +2,34 @@ from datetime import datetime, time, timedelta, date
 import streamlit as st
 
 def determine_billing_type(details):
-    # Unpack details
-    workcover_or_medicare = details['Workcover OR Medicare']
-    monthly_fee = details['Monthly Fee'].strip('$ ')
-    has_medicare_card = details['Has Medicare card']
-    patient_age = details['Patient age']
-    patient_has_concession_card = details['Patient has concenssion card']
-    appointment_type = details['Appointment type']
-    service_within_last_year = details['Has a non-telehalth service item been provided by a Doctor listed at this clinic within last 12 months']
-
-    if has_medicare_card == 'Yes':
-        if monthly_fee == '0':
-            billing_type = 'Bulk Billed'
-        else:
-            billing_type = 'Private Billing (MBS Eligible)'
+    # Unpack details and convert types
+    workcover_or_medicare = details.get('Workcover OR Medicare', 'Medicare')
+    monthly_fee = float(details.get('Monthly Fee', '$0').replace('$', '').strip())
+    has_medicare_card = details.get('Has Medicare card', 'No')
+    patient_age = int(details.get('Patient age', 0))
+    patient_has_concession_card = details.get('Patient has concenssion card', 'No')  # Note: There's a typo in "concession".
+    appointment_type = details.get('Appointment type', 'In Person')
+    service_within_last_year = details.get('Has a non-telehalth service item been provided by a Doctor listed at this clinic within last 12 months', 'No')
+    
+    # Determine billing type
+    if workcover_or_medicare.lower() == 'workcover':
+        billing_type = 'Workcover'  # Assuming 'Workcover' is a valid billing type
+    elif has_medicare_card == 'Yes' and monthly_fee == 0:
+        billing_type = 'Bulk Billed'
+    elif has_medicare_card == 'Yes':
+        billing_type = 'Private Billing (MBS Eligible)'
     else:
         billing_type = 'Private Billing (Not MBS Eligible)'
-
+    
+    # Adjust billing for telehealth conditions
     if appointment_type in ['Phone', 'Video'] and service_within_last_year == 'No':
         billing_type = 'Private Billing (Not MBS Eligible)'
 
+    # Determine Bulk Billing Incentives
     bbi_items = []
     if billing_type == 'Bulk Billed':
         if patient_age < 16 or patient_has_concession_card == 'Yes':
-            bbi_items.append('10990')
+            bbi_items.append('10990')  # This is an example BBI item number. Include other numbers as needed.
 
     return {
         'billing_type': billing_type,
@@ -535,6 +539,29 @@ def determine_billing_type(details):
         'billing_type': billing_type,
         'bbi_items': bbi_items
     }
+def can_claim_again(service_type, last_claim_date_str, frequency):
+    """
+    Determine if a claim can be made based on the last claim date and specified frequency.
+    """
+    # Check if last claim date is 'never' or an invalid date
+    if last_claim_date_str.lower() == 'never':
+        return True  # Can claim if never claimed before
+
+    # Attempt to parse the last claim date
+    try:
+        last_claim_date = datetime.strptime(last_claim_date_str, '%Y-%m-%d')
+    except ValueError:
+        return False  # Cannot claim if the date is invalid
+
+    # Calculate the next eligible claim date based on the frequency
+    if 'month' in frequency:
+        month_count = int(frequency.split()[0])
+        allowed_next_claim_date = last_claim_date + timedelta(days=month_count * 30)  # Approximate month handling
+    else:
+        # Default to not allowing if frequency handling is not defined
+        return False
+
+    return datetime.now() >= allowed_next_claim_date
 
 def comprehensive_billing_and_service_system(appointment_details):
     # Determine basic billing type
@@ -569,11 +596,11 @@ def comprehensive_billing_and_service_system(appointment_details):
         
     if not specialized_handled:
         if appointment_details.get('Spirometry performed during appointment', 'No') == 'Yes':
-            # Here, check the last spirometry claim date and determine the correct item number based on rules
-            # Assume 'spirometry_claim_frequency' is in appointment details and has the correct value
-            can_claim = can_claim_again('Spirometry', appointment_details.get('Date of last spirometry', 'never'), appointment_details.get('spirometry_claim_frequency', '12 months'))
+            # Assume the default claim frequency is '12 months' if not specified
+            can_claim = can_claim_again('Spirometry', appointment_details.get('Date of last spirometry', 'never'), '12 months')
             if can_claim:
-                service_item_details['Service Item Number'] = '11505' if appointment_details.get('Spirometry readings count') >= 3 else '11506'
+                spirometry_readings_count = int(appointment_details.get('Spirometry readings count', 0))
+                service_item_details['Service Item Number'] = '11505' if spirometry_readings_count >= 3 else '11506'
                 service_item_details['Bulk Billing Incentive Item'] = '10990'
                 service_item_details['Claiming Eligibility'] = True
                 specialized_handled = True
