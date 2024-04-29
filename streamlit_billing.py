@@ -37,6 +37,66 @@ def determine_billing_type(details):
         'billing_type': billing_type,
         'bbi_items': bbi_items
     }
+def get_non_urgent_in_person_service_item(appointment_details):
+    from datetime import datetime
+
+    # Extract necessary details from the appointment_details dictionary
+    appointment_day = appointment_details['Day of appointment']
+    appointment_time = appointment_details['Time of Appointment']
+    appointment_length_str = appointment_details['Appointment Length']
+
+    # Convert appointment time to a datetime object for easier comparison
+    appointment_time_obj = datetime.strptime(appointment_time, '%H:%M').time()
+
+    # Extract the number of minutes from the string
+    try:
+        minutes = int(appointment_length_str.split(' ')[0])
+    except ValueError:
+        raise ValueError("Invalid format of appointment length. Please provide length as '<number> mins'.")
+
+    # Define mappings based on appointment day and time
+    service_map = {
+        'weekday': {
+            'before_8am': [(6, '5000', '10990'), (20, '5020', '75870'), (40, '5040', '75870'), (60, '5060', '75870'), (float('inf'), '5071', '75870')],
+            'daytime': [(6, '3', '10990'), (20, '23', '75870'), (40, '36', '75870'), (60, '44', '75870'), (float('inf'), '123', '75870')],
+            'after_8pm': [(6, '5000', '10990'), (20, '5020', '75870'), (40, '5040', '75870'), (60, '5060', '75870'), (float('inf'), '5071', '75870')]
+        },
+        'saturday': {
+            'before_8am': [(6, '5000', '10990'), (20, '5020', '75870'), (40, '5040', '75870'), (60, '5060', '75870'), (float('inf'), '5071', '75870')],
+            '8am_1pm': [(6, '3', '10990'), (20, '23', '75870'), (40, '36', '75870'), (60, '44', '75870'), (float('inf'), '123', '75870')],
+            'after_1pm': [(6, '5000', '10990'), (20, '5020', '75870'), (40, '5040', '75870'), (60, '5060', '75870'), (float('inf'), '5071', '75870')]
+        },
+        'sunday_or_holiday': [(6, '5000', '10990'), (20, '5020', '75870'), (40, '5040', '75870'), (60, '5060', '75870'), (float('inf'), '5071', '75870')]
+    }
+
+    # Determine day and time category
+    if appointment_day.lower() in ['saturday', 'sunday', 'public holiday']:
+        day_key = 'saturday' if appointment_day.lower() == 'saturday' else 'sunday_or_holiday'
+    else:
+        day_key = 'weekday'
+    
+    # Select appropriate time category based on appointment time
+    if appointment_time_obj < datetime.strptime("08:00", '%H:%M').time():
+        time_category = service_map[day_key]['before_8am']
+    elif day_key == 'saturday' and appointment_time_obj < datetime.strptime("13:00", '%H:%M').time():
+        time_category = service_map[day_key]['8am_1pm']
+    elif day_key == 'saturday' and appointment_time_obj >= datetime.strptime("13:00", '%H:%M').time():
+        time_category = service_map[day_key]['after_1pm']
+    elif day_key == 'weekday' and appointment_time_obj >= datetime.strptime("20:00", '%H:%M').time():
+        time_category = service_map[day_key]['after_8pm']
+    else:
+        time_category = service_map[day_key]['daytime']
+
+    # Find appropriate service item number based on appointment length
+    for max_length, item_number, bbi_item in time_category:
+        if minutes <= max_length:
+            return {
+                'Service Item Number': item_number,
+                'Bulk Billing Incentive Item': bbi_item,
+                'Reason': f"Non-urgent in-person appointment on a {appointment_day}, at {appointment_time}, for {minutes} minutes, assigned to service item {item_number}."
+            }
+
+    return {'Service Item Number': 'Unknown', 'Bulk Billing Incentive Item': None, 'Reason': "No valid service item found based on the provided details."}
 
 
 def get_standard_time_based_service_item(appointment_details):
@@ -654,7 +714,12 @@ def comprehensive_billing_and_service_system(appointment_details):
         if appointment_details['Appointment urgency'] == 'Yes':
             service_item_details = get_urgent_in_person_service_item(appointment_details) if appointment_details['Appointment type'] == 'In Person' else get_urgent_telehealth_video_service_item()
         else:
-            service_item_details = get_non_urgent_telehealth_video_service_item(appointment_details) if 'Video' in appointment_details['Appointment type'] else get_non_urgent_telehealth_telephone_service_item(appointment_details)
+            if 'Video' in appointment_details['Appointment type']:
+                service_item_details = get_non_urgent_telehealth_video_service_item(appointment_details)
+            elif 'In Person' == appointment_details['Appointment type']:
+                service_item_details = get_non_urgent_in_person_service_item(appointment_details)
+            else:
+                service_item_details = get_non_urgent_telehealth_telephone_service_item(appointment_details)
 
     # Aggregate all information
     result = {
