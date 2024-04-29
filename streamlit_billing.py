@@ -38,7 +38,6 @@ def determine_billing_type(details):
         'bbi_items': bbi_items
     }
 def get_non_urgent_in_person_service_item(appointment_details):
-    from datetime import datetime
 
     # Extract necessary details from the appointment_details dictionary
     appointment_day = appointment_details['Day of appointment']
@@ -46,7 +45,7 @@ def get_non_urgent_in_person_service_item(appointment_details):
     appointment_length_str = appointment_details['Appointment Length']
 
     # Convert appointment time to a datetime object for easier comparison
-    appointment_time_obj = datetime.strptime(appointment_time, '%H:%M').time()
+    appointment_time_obj = datetime.strptime(appointment_time, '%I:%M %p').time()
 
     # Extract the number of minutes from the string
     try:
