@@ -736,21 +736,32 @@ def main():
     st.title("Medical Billing System")
 
     with st.form("appointment_form"):
-        # Define variables from form inputs with default values
+        # Patient Details
+        st.subheader("Patient Details")
         workcover_or_medicare = st.selectbox('Workcover or Medicare', ['Medicare', 'Workcover'], index=0)
-        appointment_urgency = st.selectbox('Appointment Urgency', ['Yes', 'No'], index=1)
         patient_age = st.number_input('Patient Age', min_value=0, max_value=120, value=45)
         active_member = st.selectbox('Active Member', ['Yes', 'No'], index=0)
         monthly_fee = st.text_input('Monthly Fee', value='$0')
         has_medicare_card = st.selectbox('Has Medicare Card', ['Yes', 'No'], index=0)
         registered_for_my_medicare = st.selectbox('Registered for My Medicare', ['Yes', 'No'], index=0)
         patient_has_concession_card = st.selectbox('Patient has Concession Card', ['Yes', 'No'], index=1)
-        non_telehealth_item_provided = st.selectbox('Non-telehealth Service Item Provided', ['Yes', 'No'], index=1)
-        appointment_type = st.selectbox('Appointment Type', ['In Person', 'Phone', 'Video'], index=0)
+        identifies_as_atsi = st.selectbox('Identifies as ATSI', ['Yes', 'No'], index=1)
+
+        # Appointment Time
+        st.subheader("Appointment Time")
         day_of_appointment = st.selectbox('Day of Appointment', ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], index=0)
         time_of_appointment = st.time_input('Time of Appointment', datetime.strptime('3:00 PM', '%I:%M %p'))
         appointment_length = st.text_input('Appointment Length', value='45 mins')
         public_holiday = st.selectbox('Public Holiday', ['Yes', 'No'], index=1)
+
+        # Additional Details
+        st.subheader("Additional Details")
+        appointment_urgency = st.selectbox('Appointment Urgency', ['Yes', 'No'], index=1)
+        non_telehealth_item_provided = st.selectbox('Non-telehealth Service Item Provided', ['Yes', 'No'], index=1)
+        appointment_type = st.selectbox('Appointment Type', ['In Person', 'Phone', 'Video'], index=0)
+
+        # Clinical and Health Assessments
+        st.subheader("Clinical and Health Assessments")
         gpmp_performed = st.selectbox('GPMP Performed During Appointment?', ['Yes', 'No'], index=1)
         gpmp_review_performed = st.selectbox('GPMP Review Performed During Appointment?', ['Yes', 'No'], index=1)
         tca_performed = st.selectbox('TCA Performed During Appointment?', ['Yes', 'No'], index=1)
@@ -761,7 +772,9 @@ def main():
         health_check_45_to_49yr = st.selectbox('45yr to 49yr Old Health Check Performed During Appointment?', ['Yes', 'No'], index=1)
         diabetes_check_40_to_49yr = st.selectbox('40yr to 49yr Old Diabetes Check Performed During Appointment?', ['Yes', 'No'], index=1)
         healthy_heart_check_30yr = st.selectbox('30yr+ Healthy Heart Check Performed During Appointment?', ['Yes', 'No'], index=1)
-        gp_has_mental_health_training = st.selectbox("Has the GP completed specialized mental health training?", ["Yes", "No"], index=0)
+
+        # Dates of Last Assessments and Checks
+        st.subheader("Dates of Last Assessments and Checks")
         date_of_last_mhcp = st.text_input('Date of Last MHCP', value='2023-01-15')
         date_of_last_mhcp_review = st.text_input('Date of Last MHCP Review', value='2024-03-15')
         date_of_last_gpmp = st.text_input('Date of Last GPMP', value='2022-10-01')
@@ -772,26 +785,15 @@ def main():
         date_of_last_45_to_49yr_health_check = st.text_input("Date of last 45 to 49 year health check (YYYY-MM-DD)", 'N/A')
         date_of_last_40_to_49yr_diabetes_check = st.text_input("Date of last 40 to 49 year diabetes check (YYYY-MM-DD)", 'N/A')
         date_of_last_30yr_plus_healthy_heart_check = st.text_input("Date of last 30+ year healthy heart check (YYYY-MM-DD)", 'N/A')
-
-        # Eligibility checkboxes or select boxes depending on the application requirements
-        patient_meets_requirements_75yr = st.selectbox("Does the patient meet the requirements for a 75+ year health assessment?", ["Yes", "No"], index=1)
-        patient_meets_requirements_45_to_49yr = st.selectbox("Does the patient meet the requirements for a 45 to 49 year health check?", ["Yes", "No"], index=0)
-        patient_meets_requirements_40_to_49yr = st.selectbox("Does the patient meet the requirements for a 40 to 49 year diabetes check?", ["Yes", "No"], index=1)
-        patient_meets_requirements_30yr_plus = st.selectbox("Does the patient meet the requirements for a 30+ year healthy heart check?", ["Yes", "No"], index=0)
-   
         date_of_last_spirometry = st.text_input('Date of Last Spirometry', value='2023-08-20')
         spirometry_performed = st.selectbox('Spirometry Performed During Appointment?', ['Yes', 'No'], index=1)
         ecg_performed = st.selectbox('ECG Performed During Appointment?', ['Yes', 'No'], index=1)
         pregnancy_test_performed = st.selectbox('Pregnancy Test Performed During Appointment?', ['Yes', 'No'], index=1)
-        identifies_as_atsi = st.selectbox('Identifies as ATSI', ['Yes', 'No'], index=1)
-
-
+        
         submitted = st.form_submit_button("Submit")
         if submitted:
             appointment_details = {
-                # Add all the fields collected here
-                'Workcover OR Medicare': workcover_or_medicare,
-                'GP has done specialised Mental Health Training': gp_has_mental_health_training,
+                # Compile all the fields collected
                 'Workcover OR Medicare': workcover_or_medicare,
                 'Appointment urgency': appointment_urgency,
                 'Patient age': patient_age,
@@ -800,12 +802,14 @@ def main():
                 'Has Medicare card': has_medicare_card,
                 'Registered for My Medicare': registered_for_my_medicare,
                 'Patient has concession card': patient_has_concession_card,
-                'Has a non-telehealth service item been provided by a Doctor listed at this clinic within last 12 months': non_telehealth_item_provided,
+                'Non-telehealth service item provided': non_telehealth_item_provided,
                 'Appointment type': appointment_type,
                 'Day of appointment': day_of_appointment,
-                'Time of Appointment': time_of_appointment.strftime('%I:%M %p'),  # Format time as needed
+                'Time of Appointment': time_of_appointment.strftime('%I:%M %p'),
                 'Appointment Length': appointment_length,
                 'Public Holiday': public_holiday,
+                'Identifies as ATSI': identifies_as_atsi,
+                # Include other clinical and assessment details
                 'GPMP performed during appointment?': gpmp_performed,
                 'GPMP Review performed during appointment?': gpmp_review_performed,
                 'TCA performed during appointment?': tca_performed,
@@ -826,21 +830,17 @@ def main():
                 'Date of last 45yr to 49yr old health check': date_of_last_45_to_49yr_health_check,
                 'Date of last 40yr to 49yr old Diabetes check': date_of_last_40_to_49yr_diabetes_check,
                 'Date of last 30yr+ Healthy Heart check': date_of_last_30yr_plus_healthy_heart_check,
-                'Patient meets requirements for 75yr+ health assessment': patient_meets_requirements_75yr,
-                'Patient meets requirements for 45yr to 49yr health check': patient_meets_requirements_45_to_49yr,
-                'Patient meets requirements for 40yr to 49yr health check': patient_meets_requirements_40_to_49yr,
-                'Patient meets requirements for 30yr+ healthy heart check': patient_meets_requirements_30yr_plus,
                 'Date of last spirometry': date_of_last_spirometry,
                 'Spirometry performed during appointment': spirometry_performed,
                 'ECG Performed during appointment': ecg_performed,
-                'Pregnancy Test Performed during appointment': pregnancy_test_performed,
-                'Identifies as ATSI': identifies_as_atsi
+                'Pregnancy Test Performed during appointment': pregnancy_test_performed
             }
             result = comprehensive_billing_and_service_system(appointment_details)
             st.write(result)
 
 if __name__ == "__main__":
     main()
+
 
 
 
