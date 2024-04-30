@@ -1,42 +1,6 @@
 from datetime import datetime, time, timedelta, date
 import streamlit as st
 
-def determine_billing_type(details):
-    # Unpack details
-    workcover_or_medicare = details['Workcover OR Medicare']
-    monthly_fee = details['Monthly Fee'].strip('$ ')
-    has_medicare_card = details['Has Medicare card']
-    patient_age = details['Patient age']
-    patient_has_concession_card = details['Patient has concenssion card']
-    appointment_type = details['Appointment type']
-    service_within_last_year = details['Has a non-telehalth service item been provided by a Doctor listed at this clinic within last 12 months']
-    
-    # Basic billing determination based on Medicare and monthly fee
-    if has_medicare_card == 'Yes':
-        if monthly_fee == '0':
-            billing_type = 'Bulk Billed'
-        else:
-            billing_type = 'Private Billing (MBS Eligible)'
-    else:
-        billing_type = 'Private Billing (Not MBS Eligible)'
-
-    # Adjust billing for telehealth conditions
-    if appointment_type in ['Phone', 'Video'] and service_within_last_year == 'No':
-        billing_type = 'Private Billing (Not MBS Eligible)'
-
-    # Determine additional Bulk Billing Incentives
-    bbi_items = []
-    if billing_type == 'Bulk Billed':
-        if patient_age < 16 or patient_has_concession_card == 'Yes':
-            # Adding BBI depending on the condition
-            bbi_items.append('10990')
-            # For example, if you have specific conditions on when to use 75870, include it here
-            # bbi_items.append('75870')
-
-    return {
-        'billing_type': billing_type,
-        'bbi_items': bbi_items
-    }
 def get_non_urgent_in_person_service_item(appointment_details):
 
     # Extract necessary details from the appointment_details dictionary
@@ -366,7 +330,7 @@ def mhcp_billing_system(appointment_details):
             service_item_number = '2715' if gp_has_training else '2700'
         elif service_length > 40:
             service_item_number = '2717' if gp_has_training else '2701'
-    elif appointment_type in ['Voice', 'Video']:
+    elif appointment_type in ['Phone', 'Video']:
         if 20 <= service_length <= 40:
             service_item_number = '92116' if gp_has_training else '92112'
         elif service_length > 40:
@@ -613,44 +577,62 @@ def get_service_item(appointment_details):
             'Reason': 'Invalid or missing data for determining service type.'
         }
 def determine_billing_type(details):
-    # Safely get details with default values if keys are missing
-    workcover_or_medicare = details.get('Workcover OR Medicare', 'Medicare')  # Default to 'Medicare' if not specified
-    monthly_fee = details.get('Monthly Fee', '$0').strip('$ ')
+    # Extract details safely with default values
+    workcover_or_medicare = details.get('Workcover OR Medicare', 'Medicare')
+    monthly_fee = details.get('Monthly Fee', '$0').replace('$', '').strip()
     has_medicare_card = details.get('Has Medicare card', 'No')
-    patient_age = details.get('Patient age', 0)  # Default to 0 if not specified
-    patient_has_concession_card = details.get('Patient has concenssion card', 'No')
+    patient_age = int(details.get('Patient age', 0))
+    patient_has_concession_card = details.get('Patient has concession card', 'No')
     appointment_type = details.get('Appointment type', 'In Person')
     service_within_last_year = details.get('Has a non-telehealth service item been provided by a Doctor listed at this clinic within last 12 months', 'No')
-    
+    work_capacity_certificate_age = details.get('Work Capacity Certificate Age', None)  # This should be provided in months
+
     billing_reason = ""
-    # Basic billing determination based on Medicare and monthly fee
-    if has_medicare_card == 'Yes' and monthly_fee == '0':
-        billing_type = 'Bulk Billed'
-        billing_reason = "Eligible for bulk billing as patient has a Medicare card and no monthly fee is charged."
-    elif has_medicare_card == 'Yes':
-        billing_type = 'Private Billing (MBS Eligible)'
-        billing_reason = "Eligible for private billing under Medicare benefits as patient has a Medicare card."
-    else:
-        billing_type = 'Private Billing (Not MBS Eligible)'
-        billing_reason = "Not eligible for Medicare benefits; private billing applies."
-
-    # Adjust billing for telehealth conditions
-    if appointment_type in ['Phone', 'Video'] and service_within_last_year == 'No':
-        billing_type = 'Private Billing (Not MBS Eligible)'
-        billing_reason += " Adjusted to private billing as the appointment is via telehealth and no in-person service was provided in the last year."
-
-    # Determine additional Bulk Billing Incentives
     bbi_items = []
-    if billing_type == 'Bulk Billed':
-        if int(patient_age) < 16 or patient_has_concession_card == 'Yes':
-            bbi_items.append('10990')  # Example BBI item number
-            billing_reason += " Additional bulk billing incentive applied due to age under 16 or possession of a concession card."
+
+    # Handling Workcover or Medicare based on the recent work capacity certificate
+    if work_capacity_certificate_age is not None and work_capacity_certificate_age <= 3:
+        if workcover_or_medicare.lower() == 'workcover':
+            billing_type = 'Workcover'
+            billing_reason = "Patient has a recent work capacity certificate and selected Workcover."
+        else:
+            billing_type = 'Medicare'
+            billing_reason = "Patient has a recent work capacity certificate but selected Medicare."
+    else:
+        # Determine billing based on Medicare and monthly fee
+        if has_medicare_card == 'Yes':
+            if float(monthly_fee) == 0:
+                billing_type = 'Bulk Billed'
+                billing_reason = "Patient has a Medicare card and zero monthly fee."
+            else:
+                billing_type = 'Private Billing (MBS Eligible)'
+                billing_reason = "Patient has a Medicare card but a non-zero monthly fee."
+        else:
+            billing_type = 'Private Billing (Not MBS Eligible)'
+            billing_reason = "Patient does not have a Medicare card."
+
+        # Adjust billing for telehealth conditions
+        if appointment_type in ['Phone', 'Video'] and service_within_last_year == 'No':
+            billing_type = 'Private Billing (Not MBS Eligible)'
+            billing_reason += " Adjusted to private billing as the appointment is telehealth without prior in-person service."
+
+        # Determine Bulk Billing Incentives if applicable
+        if billing_type == 'Bulk Billed':
+            if patient_age < 16:
+                bbi_items.append('10990')
+                billing_reason += " Bulk Billing Incentive for patients under 16."
+                billing_type = 'Bulk Billed (Incentive Available)'
+            if patient_has_concession_card == 'Yes':
+                bbi_items.append('75870')
+                billing_reason += " Bulk Billing Incentive for patients with a concession card."
+                billing_type = 'Bulk Billed (Incentive Available)'
 
     return {
         'billing_type': billing_type,
         'bbi_items': bbi_items,
         'billing_reason': billing_reason
     }
+
 def comprehensive_billing_and_service_system(appointment_details):
     # Determine basic billing type
     billing_info = determine_billing_type(appointment_details)
@@ -720,6 +702,12 @@ def comprehensive_billing_and_service_system(appointment_details):
             else:
                 service_item_details = get_non_urgent_telehealth_telephone_service_item(appointment_details)
 
+    # Set Bulk Billing Incentive Item based on billing type
+    if billing_info['billing_type'] == 'Bulk Billed (Incentive Available)':
+        service_item_details['Bulk Billing Incentive Item'] = ','.join(billing_info['bbi_items'])
+    else:
+        service_item_details['Bulk Billing Incentive Item'] = None 
+
     # Aggregate all information
     result = {
         'Billing Type': billing_info['billing_type'],
@@ -765,7 +753,7 @@ def main():
         patient_meets_requirements_45_to_49yr = st.selectbox("Does the patient meet the requirements for a 45 to 49 year health check?", ["Yes", "No"], index=0)
         patient_meets_requirements_40_to_49yr = st.selectbox("Does the patient meet the requirements for a 40 to 49 year diabetes check?", ["Yes", "No"], index=1)
         patient_meets_requirements_30yr_plus = st.selectbox("Does the patient meet the requirements for a 30+ year healthy heart check?", ["Yes", "No"], index=0)
-        
+
         # Clinical and Health Assessments
         st.subheader("Clinical and Health Assessments")
         gpmp_performed = st.selectbox('GPMP Performed During Appointment?', ['Yes', 'No'], index=1)
